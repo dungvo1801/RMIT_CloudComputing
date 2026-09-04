@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SplitEase - Group Expense Splitter</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1><span class="brand-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></span> SplitEase</h1>
+    <div id="userBar" class="hidden">
+      <span id="userEmail"></span>
+      <button id="changePasswordBtn" class="secondary-btn">Change password</button>
+      <button id="signOutBtn" class="secondary-btn">Sign out</button>
+    </div>
+  </header>
+
+  <!-- AUTH VIEWS -->
+  <section id="authView" class="auth-view">
+    <div class="card">
+      <h2 id="authTitle">Sign in</h2>
+
+      <form id="signInForm">
+        <input type="email" id="signInEmail" placeholder="Email" required />
+        <input type="password" id="signInPassword" placeholder="Password" required />
+        <button type="submit">Sign in</button>
+      </form>
+      <p>No account? <a href="#" id="showSignUp">Sign up</a></p>
+
+      <form id="signUpForm" class="hidden">
+        <input type="email" id="signUpEmail" placeholder="Email" required />
+        <input type="password" id="signUpPassword" placeholder="Password" minlength="8" required />
+        <p class="hint">At least 8 characters, including a lowercase letter and a number.</p>
+        <button type="submit">Sign up</button>
+      </form>
+      <p id="authError" class="error"></p>
+    </div>
+  </section>
+
+  <!-- APP VIEW -->
+  <main id="appView" class="app-view hidden">
+    <aside class="sidebar">
+      <h3>Your groups</h3>
+      <ul id="groupList"></ul>
+      <form id="newGroupForm">
+        <input type="text" id="newGroupName" placeholder="New group name" required />
+        <select id="newGroupCurrency" title="Base currency for this group">
+          <option value="USD">USD ($)</option>
+          <option value="EUR">EUR (€)</option>
+          <option value="GBP">GBP (£)</option>
+          <option value="VND">VND (₫)</option>
+          <option value="JPY">JPY (¥)</option>
+          <option value="AUD">AUD (A$)</option>
+        </select>
+        <button type="submit">Create group</button>
+      </form>
+      <p class="hint">Tip: right-click a group to delete it.</p>
+    </aside>
+
+    <section class="main-panel">
+      <div id="noGroupSelected" class="empty-state">
+        <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></div>
+        <h2>No group selected</h2>
+        <p>Create your first group on the left to start splitting expenses, or pick an existing one from the list.</p>
+      </div>
+
+      <div id="groupPanel" class="hidden">
+        <div class="group-header">
+          <div>
+            <h2 id="groupTitle"></h2>
+            <span id="groupBaseCurrency" class="hint"></span>
+          </div>
+          <div class="group-header-actions">
+            <button id="renameGroupBtn" class="icon-btn" title="Rename group"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+            <button id="deleteGroupBtn" class="danger-btn" title="Delete this group">Delete group</button>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="members">Members</button>
+          <button class="tab-btn" data-tab="transactions">Transactions</button>
+          <button class="tab-btn" data-tab="balances">Balances</button>
+          <button class="tab-btn" data-tab="reports">Reports</button>
+        </div>
+
+        <div id="tab-members" class="tab-content">
+          <ul id="memberList" class="member-list"></ul>
+          <form id="addMemberForm">
+            <input type="text" id="newMemberName" placeholder="Member name" required />
+            <button type="submit">Add member</button>
+          </form>
+        </div>
+
+        <div id="tab-transactions" class="tab-content hidden">
+          <form id="addTxnForm" class="card-form">
+            <input type="hidden" id="editingTxnId" value="" />
+            <h4 id="txnFormTitle">Add a transaction</h4>
+            <select id="txnPayer" required></select>
+            <input type="number" id="txnAmount" placeholder="Amount" step="0.01" min="0.01" required />
+            <select id="txnCurrency" title="Currency this expense was paid in">
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="VND">VND (₫)</option>
+              <option value="JPY">JPY (¥)</option>
+              <option value="AUD">AUD (A$)</option>
+            </select>
+            <input type="date" id="txnDate" title="Expense date" />
+            <input type="text" id="txnDescription" placeholder="Description" />
+            <select id="txnCategory">
+              <option>General</option>
+              <option>Groceries</option>
+              <option>Rent</option>
+              <option>Utilities</option>
+              <option>Entertainment</option>
+              <option>Transport</option>
+            </select>
+            <div id="txnSplitAmong" class="checkbox-group"></div>
+            <input type="file" id="txnReceipt" accept="image/*" />
+            <div class="form-actions">
+              <button type="submit" id="txnSubmitBtn">Add transaction</button>
+              <button type="button" id="cancelEditTxnBtn" class="secondary-btn hidden">Cancel edit</button>
+            </div>
+          </form>
+          <div class="txn-toolbar">
+            <select id="txnFilterCategory">
+              <option value="">All categories</option>
+            </select>
+            <select id="txnFilterPerson">
+              <option value="">All people</option>
+            </select>
+            <input type="date" id="txnFilterDateFrom" title="From date" />
+            <input type="date" id="txnFilterDateTo" title="To date" />
+            <select id="txnSortBy">
+              <option value="date_desc">Newest first</option>
+              <option value="date_asc">Oldest first</option>
+              <option value="amount_desc">Amount: high to low</option>
+              <option value="amount_asc">Amount: low to high</option>
+            </select>
+          </div>
+          <div id="txnList" class="txn-list"></div>
+        </div>
+
+        <div id="tab-balances" class="tab-content hidden">
+          <h3>Net balances</h3>
+          <ul id="balanceList"></ul>
+          <h3>Suggested settlements</h3>
+          <ul id="settlementList"></ul>
+        </div>
+
+        <div id="tab-reports" class="tab-content hidden">
+          <div class="reports-toolbar">
+            <select id="reportsFilterPerson">
+              <option value="">All people</option>
+            </select>
+            <input type="date" id="reportsFilterDateFrom" title="From date" />
+            <input type="date" id="reportsFilterDateTo" title="To date" />
+            <button id="refreshReportsBtn">Refresh analytics (Athena)</button>
+          </div>
+
+          <div id="reportsEmpty" class="hint">Click "Refresh analytics" to load charts from Athena.</div>
+
+          <div id="reportsContent" class="hidden">
+            <div class="stat-row">
+              <div class="stat-tile">
+                <span class="stat-label">Total spend</span>
+                <span class="stat-value" id="statTotalSpend">-</span>
+              </div>
+              <div class="stat-tile">
+                <span class="stat-label">Total settled</span>
+                <span class="stat-value" id="statTotalSettled">-</span>
+              </div>
+              <div class="stat-tile">
+                <span class="stat-label">Categories</span>
+                <span class="stat-value" id="statCategoryCount">-</span>
+              </div>
+            </div>
+
+            <div class="report-grid">
+              <div class="report-card">
+                <h4>Spending by category</h4>
+                <canvas id="categoryChart"></canvas>
+              </div>
+              <div class="report-card">
+                <h4>Spending by month</h4>
+                <canvas id="monthChart"></canvas>
+              </div>
+              <div class="report-card">
+                <h4>Spending by member</h4>
+                <canvas id="memberChart"></canvas>
+              </div>
+              <div class="report-card">
+                <h4>Settlements (who paid whom)</h4>
+                <ul id="settlementsReportList" class="settlements-report-list"></ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <ul id="groupContextMenu" class="context-menu hidden">
+    <li data-action="delete">Delete group</li>
+  </ul>
+
+  <!-- Generic modal (rename dialogs, receipt preview) -->
+  <div id="modalOverlay" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h3 id="modalTitle"></h3>
+      <div id="modalBody"></div>
+      <div class="modal-actions">
+        <button id="modalCancelBtn" type="button" class="secondary-btn">Cancel</button>
+        <button id="modalConfirmBtn" type="button">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/amazon-cognito-identity-js@6/dist/amazon-cognito-identity.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

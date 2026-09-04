@@ -1,0 +1,21 @@
+# Build artifacts
+.aws-sam/
+
+# OS / editor
+.DS_Store
+
+# Local tooling config
+.claude/
+
+# Assignment brief (not project code)
+ASSESSMENT_3_S2-1.pdf
+
+# Demo-prep docs (kept local only, not pushed)
+docs/Demo_Day_Checklist.md
+docs/Demo_Rubric_Cheatsheet.md
+docs/Demo_Rubric_Cheatsheet_EN.md
+docs/Demo_Skill_Development_Talking_Points.md
+docs/Test_Cases_AWS_Verification.md
+
+# AWS credentials (never commit)
+.aws/
