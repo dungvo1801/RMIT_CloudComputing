@@ -12,7 +12,7 @@
 ## 1. Links
 
 - **Live URL:** http://expense-splitter-site-864419282671-us-east-1.s3-website-us-east-1.amazonaws.com
-- **Repository URL:** `[https://github.com/<you>/<repo>]`
+- **Repository URL:** https://github.com/dungvo1801/RMIT_CloudComputing
 - **Public dataset link(s):** N/A — all data is user-generated within the app.
 
 ## 2. Summary
