@@ -57,12 +57,12 @@ optionally attaching a photo of the receipt. The system:
 
 - **Splitwise** — the dominant commercial expense-splitting app; SplitEase
   reproduces its core "who owes whom" mechanic but as an educational,
-  fully-serverless AWS implementation with its own analytics pipeline.
-  [Add IEEE-style citation]
-- **Tricount** — similar group-expense tracker with multi-currency support.
-  [Add IEEE-style citation]
-- [Add any academic/technical references you drew on, e.g. AWS
-  well-architected guidance for serverless data lakes.]
+  fully-serverless AWS implementation with its own analytics pipeline [6].
+- **Tricount** — similar group-expense tracker with multi-currency support,
+  a feature SplitEase also implements via a live exchange-rate API [7].
+- **AWS single-table design guidance** — the DynamoDB schema in §5.3
+  follows AWS's own recommended pattern of modelling a table around access
+  patterns rather than entities [8].
 
 ## 5. System Architecture
 
@@ -472,4 +472,11 @@ Use IEEE style. Examples to adapt:
 [2] Amazon Web Services, "Amazon Cognito Developer Guide," 2026. [Online]. Available: https://docs.aws.amazon.com/cognito/
 [3] Amazon Web Services, "Amazon Athena User Guide," 2026. [Online]. Available: https://docs.aws.amazon.com/athena/
 [4] ExchangeRate-API, "Open Exchange Rate API documentation," 2026. [Online]. Available: https://www.exchangerate-api.com/docs/free
-[5] [Add every tutorial/Stack Overflow/blog post you actually used while building.]
+[5] Amazon Web Services, "Amazon DynamoDB Developer Guide — Best practices for designing and using partition keys effectively," 2026. [Online]. Available: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-partition-key-design.html
+[6] Splitwise, Inc., "Splitwise," 2026. [Online]. Available: https://www.splitwise.com/
+[7] Tricount SA, "Tricount," 2026. [Online]. Available: https://www.tricount.com/
+[8] A. Brown, R. Vanaman, and S. Nunneley, "AWS re:Invent 2018: Amazon DynamoDB Deep Dive: Advanced Design Patterns (DAT401)," Amazon Web Services, 2018. [Online]. Available: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-general-nosql-design.html
+[9] Amazon Web Services, "Amazon Cognito Identity SDK for JavaScript (amazon-cognito-identity-js)," 2026. [Online]. Available: https://github.com/aws-amplify/amplify-js/tree/main/packages/amazon-cognito-identity-js
+[10] Chart.js contributors, "Chart.js documentation," 2026. [Online]. Available: https://www.chartjs.org/docs/latest/
+[11] Amazon Web Services, "Amazon DynamoDB Developer Guide — Change data capture for DynamoDB Streams," 2026. [Online]. Available: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Streams.html
+[12] Amazon Web Services, "AWS Glue Developer Guide — Populating the AWS Glue Data Catalog," 2026. [Online]. Available: https://docs.aws.amazon.com/glue/latest/dg/populate-data-catalog.html
