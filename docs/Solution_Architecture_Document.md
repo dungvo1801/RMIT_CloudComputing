@@ -119,6 +119,7 @@ flowchart TD
     User -->|Sign up / sign in / change password (SRP)| Cognito[Cognito User Pool]
     User -->|fetch + Bearer JWT| APIGW[API Gateway HTTP API<br/>Cognito JWT authorizer]
 
+    Cognito -->|Pre Sign-up trigger| LPreSignup[Lambda: pre_signup]
     Cognito -->|Post Confirmation trigger| LPostConfirm[Lambda: post_confirmation]
     LPostConfirm --> UsersDDB[(DynamoDB: UsersTable)]
     APIGW --> LAccount[Lambda: account]
@@ -151,23 +152,23 @@ flowchart TD
 | Component | Purpose |
 |---|---|
 | **Amazon S3 (site bucket)** | Hosts the static SPA (HTML/CSS/JS) via S3 Static Website Hosting. Chosen for zero-server, pay-per-use hosting of static assets (CloudFront was the original plan for this layer but is denied on the lab account — see §5.0). |
-| **Amazon Cognito** | Manages user sign-up/sign-in and issues JWTs; keeps each user's groups scoped to their identity without building custom auth. |
+| **Amazon Cognito** | Manages user sign-up/sign-in and issues JWTs; keeps each user's groups scoped to their identity without building custom auth. Configured with `UsernameAttributes: [email]`, which has a non-obvious side effect worth documenting: Cognito auto-generates a UUID as the pool's real internal "Username"/`sub`, treating the login email as an alias only — so the SDK's `CognitoUser.getUsername()` returns that UUID, not the email. The frontend instead reads the `email` claim directly out of the decoded ID token to display the signed-in user's address correctly. |
 | **Amazon API Gateway (HTTP API)** | Exposes REST-style endpoints (`/groups`, `/groups/{id}/transactions`, etc.), validates the Cognito JWT on every call, and routes to the correct Lambda. |
-| **AWS Lambda** | Seven functions implement all business logic: group/member management, transaction recording, on-demand balance + debt-simplification calculation, receipt-upload URL generation, DynamoDB-Streams export, and Athena-backed reporting. Chosen over a server-based approach (EC2/Elastic Beanstalk) because workload is bursty/low-volume per user and benefits from scale-to-zero pricing. |
+| **AWS Lambda** | Ten functions implement all business logic: group/member management, transaction recording, on-demand balance + debt-simplification calculation, receipt-upload URL generation, DynamoDB-Streams export, Athena-backed reporting, and two Cognito auth triggers (auto-confirm sign-up, auto-create profile). Chosen over a server-based approach (EC2/Elastic Beanstalk) because workload is bursty/low-volume per user and benefits from scale-to-zero pricing. |
 | **Amazon DynamoDB** (`ExpenseTable`) | Single-table NoSQL store for groups, members, and transactions. Chosen for low-latency reads/writes at any scale and native Streams support, which powers the analytics pipeline without a separate ETL job. Balances are **not** stored as a field — they are computed on demand from the full transaction history each time `/balances` is called, so they can never drift out of sync with the underlying transactions. |
 | **Amazon DynamoDB** (`UsersTable`) | A **separate** table holding a simple user profile row per account (`email`, `username`, `password_last_changed_at`). Auto-populated by the `post_confirmation` Lambda right after sign-up, and touched again by `account` after a password change. See §5.3.1 for why its `password` column never holds a real credential. |
 | **Amazon S3 (receipts bucket)** | Stores user-uploaded receipt images. The frontend uploads directly via a Lambda-issued presigned URL, so image bytes never pass through API Gateway/Lambda. |
 | **Amazon S3 (analytics bucket)** | Data-lake landing zone for exported transaction records (JSON) and Athena query results. |
 | **AWS Glue Data Catalog** | Defines the schema over the analytics bucket's JSON files so Athena can query it as a table without a separate database server. |
-| **Amazon Athena** | Serverless SQL queries over the data lake to produce "spending by category" and "spending by month" reports, rendered as charts in the UI. Covers the "Analytics" requirement / Big Data analysis learning outcome. |
+| **Amazon Athena** | Serverless SQL queries over the data lake, run on a dedicated workgroup (`expense-splitter-workgroup`, not `primary`) to isolate cost/history tracking. Produces "spending by category", "spending by month", "spending by member", and "settlements between members" reports — each optionally scoped further by a specific member or a date range — rendered as charts/lists in the UI. Covers the "Analytics" requirement / Big Data analysis learning outcome. |
 
 ### 5.2.1 Lambda function breakdown
 
-Nine Lambda functions each own one narrow responsibility. All API-triggered
-ones sit behind the same API Gateway HTTP API with the Cognito JWT
-authorizer; `stream_export` has no HTTP endpoint at all (invoked directly by
-DynamoDB), and `post_confirmation` has no HTTP endpoint either (invoked
-directly by Cognito).
+Ten Lambda functions each own one narrow responsibility: seven sit behind
+the API Gateway HTTP API with the Cognito JWT authorizer, and three are
+invoked directly by other AWS services rather than by an HTTP call —
+`pre_signup` and `post_confirmation` by Cognito, and `stream_export` by
+DynamoDB Streams.
 
 | Function | Trigger | Purpose | AWS services it talks to |
 |---|---|---|---|
@@ -177,7 +178,8 @@ directly by Cognito).
 | `balances` | API Gateway: `GET /groups/{groupId}/balances` | Compute each member's net balance and the minimal-transaction debt settlement, fresh on every call | DynamoDB (read-only) |
 | `receipts_upload_url` | API Gateway: `POST /receipts/upload-url`, `GET /receipts/view-url` | Issue short-lived presigned S3 URLs so the browser can upload/view a receipt image directly, without the bytes passing through Lambda | S3 (receipts bucket) |
 | `stream_export` | **DynamoDB Streams** (not an HTTP route) — fires on every transaction insert/edit/delete | Mirror each transaction into the S3 data lake as a JSON file (or delete it, on removal), keeping the analytics copy in sync with the live data | DynamoDB Streams (event source), S3 (analytics bucket) |
-| `reports` | API Gateway: `GET /groups/{groupId}/reports` | Run two Athena SQL queries (spend by category, spend by month) filtered to one group and return the rows as JSON | Athena (query execution), Glue Data Catalog (schema lookup via the Athena database reference), S3 (analytics bucket — both the query source and the results location) |
+| `reports` | API Gateway: `GET /groups/{groupId}/reports`, with optional `member`/`date_from`/`date_to` query-string filters | Run four Athena SQL queries filtered to one group (spend by category, spend by month, spend by member, and settlements between each payer/payee pair) and return the rows as JSON | Athena (query execution, on the dedicated `expense-splitter-workgroup`), Glue Data Catalog (schema lookup via the Athena database reference), S3 (analytics bucket — both the query source and the results location) |
+| `pre_signup` | **Cognito Pre Sign-up trigger** (not an HTTP route) — fires before a new account is created | Auto-confirm the account and auto-verify its email, so the user can sign in immediately without an emailed verification code | None (Cognito only) |
 | `post_confirmation` | **Cognito Post Confirmation trigger** (not an HTTP route) — fires right after a user confirms sign-up | Auto-create that user's row in `UsersTable` (username, email) | DynamoDB (`UsersTable`) |
 | `account` | API Gateway: `PUT /account/password-changed` | Called by the frontend immediately after Cognito confirms a password change, to timestamp it on the user's profile row | DynamoDB (`UsersTable`) |
 
@@ -351,6 +353,8 @@ entered and the rate the third-party API returned, purely for display:
   "txn_id": "uuid",
   "group_id": "uuid",
   "payer": "Alice",
+  "payee": null,
+  "is_settlement": false,
   "amount": 32.50,
   "currency": "EUR",
   "original_amount": 30.00,
@@ -362,6 +366,11 @@ entered and the rate the third-party API returned, purely for display:
   "created_at": "2026-08-11T04:00:00Z"
 }
 ```
+
+A settlement (a direct payer→payee debt payment, recorded via the same
+endpoint with `is_settlement: true`) uses the identical item shape, just
+with `payee` set, `split_among: []`, and `category: "Settlement"` — see
+§5.2.3.
 
 **Key REST endpoints** (all require `Authorization: <Cognito ID token>`):
 
@@ -382,7 +391,7 @@ entered and the rate the third-party API returned, purely for display:
 | GET | `/groups/{groupId}/balances` | Net balances + suggested settlements |
 | POST | `/receipts/upload-url` | Get a presigned S3 PUT URL to upload a receipt |
 | GET | `/receipts/view-url?key=...` | Get a presigned S3 GET URL to view a receipt |
-| GET | `/groups/{groupId}/reports` | Athena-backed category/month spend breakdown |
+| GET | `/groups/{groupId}/reports?member=&date_from=&date_to=` | Athena-backed category/month/member spend breakdown plus a settlements list; the three query-string params are all optional and further scope every underlying SQL query |
 | PUT | `/account/password-changed` | Timestamp a successful password change on the caller's `UsersTable` row |
 
 ### 5.3.4 DynamoDB tables field reference (demo cheat sheet)
